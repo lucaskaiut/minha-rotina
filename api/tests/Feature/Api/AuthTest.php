@@ -109,4 +109,13 @@ class AuthTest extends ApiTestCase
         $this->getJson('/api/v1/daughters')->assertUnauthorized();
         $this->getJson('/api/v1/notifications')->assertUnauthorized();
     }
+
+    public function test_unauthenticated_response_is_json_even_without_accept_header(): void
+    {
+        // Clientes sem "Accept: application/json" (ex.: curl/navegador) não podem
+        // receber 500 por causa do redirect para a rota "login".
+        $this->get('/api/v1/daughters', ['Accept' => '*/*'])
+            ->assertUnauthorized()
+            ->assertHeader('Content-Type', 'application/json');
+    }
 }
