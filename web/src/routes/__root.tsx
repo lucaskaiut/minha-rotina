@@ -4,10 +4,26 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { AuthProvider } from '#/contexts/AuthContext'
 import { PushProvider } from '#/contexts/PushContext'
+import { PwaInstallProvider } from '#/contexts/PwaInstallContext'
 import { ensureServiceWorkerRegistration } from '#/services/pwa'
 import { appleSplashLinks } from '#/pwa/splash'
 
 import appCss from '../styles.css?url'
+
+// Captura o beforeinstallprompt o quanto antes (antes da hidratação), para o
+// botão "Instalar aplicativo" não perder o evento quando o app abrir no navegador.
+const INSTALL_PROMPT_CAPTURE = `(function () {
+  window.__mrInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();
+    window.__mrInstallPrompt = event;
+    window.dispatchEvent(new Event('mr:install-available'));
+  });
+  window.addEventListener('appinstalled', function () {
+    window.__mrInstallPrompt = null;
+    window.dispatchEvent(new Event('mr:installed'));
+  });
+})();`
 
 export const Route = createRootRoute({
   head: () => ({
@@ -77,10 +93,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="pt-BR">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_PROMPT_CAPTURE }} />
       </head>
       <body className="bg-[#F8FAFC] text-[#111827] antialiased selection:bg-[#EEF0FF] selection:text-[#4A4BCF]">
         <AuthProvider>
-          <PushProvider>{children}</PushProvider>
+          <PushProvider>
+            <PwaInstallProvider>{children}</PwaInstallProvider>
+          </PushProvider>
         </AuthProvider>
         <TanStackDevtools
           config={{ position: 'bottom-right' }}

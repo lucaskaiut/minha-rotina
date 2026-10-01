@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ArrowRight, ShieldCheck, Bug } from 'lucide-react'
 import appLogo from '#/assets/images/logo.png'
+import { PwaInstallButton } from '#/components/common/PwaInstallButton'
 import { Link } from '@tanstack/react-router'
 import { Button } from '../ui/Button'
 import { TextInput } from '../ui/Input'
@@ -210,6 +211,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
             Criar conta da família
           </Link>
         </div>
+
+        <PwaInstallButton variant="link" />
 
         <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#6B7280] pt-2">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

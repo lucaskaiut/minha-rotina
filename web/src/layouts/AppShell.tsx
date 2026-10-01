@@ -19,6 +19,7 @@ import { useAuth } from '#/contexts/AuthContext'
 import { useAppData } from '#/contexts/AppDataContext'
 import appIcon from '#/assets/images/icon.png'
 import { NotificationToast } from '#/components/common/NotificationToast'
+import { PwaInstallButton } from '#/components/common/PwaInstallButton'
 import { PushToggle } from '#/components/notifications/PushToggle'
 import { TaskModal } from '#/components/mother/TaskModal'
 import { AddDaughterWizard } from '#/components/mother/AddDaughterWizard'
@@ -143,6 +144,7 @@ export function AppShell() {
                 </p>
                 <p className="text-[11px] text-[#6B7280]">{userRoleLabel}</p>
               </div>
+              <PwaInstallButton />
               <PushToggle preferences={notificationRule} />
               <button
                 type="button"
