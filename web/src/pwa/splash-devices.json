@@ -1,0 +1,20 @@
+[
+  { "cssWidth": 320, "cssHeight": 568, "dpr": 2 },
+  { "cssWidth": 375, "cssHeight": 667, "dpr": 2 },
+  { "cssWidth": 414, "cssHeight": 736, "dpr": 3 },
+  { "cssWidth": 375, "cssHeight": 812, "dpr": 3 },
+  { "cssWidth": 414, "cssHeight": 896, "dpr": 2 },
+  { "cssWidth": 414, "cssHeight": 896, "dpr": 3 },
+  { "cssWidth": 390, "cssHeight": 844, "dpr": 3 },
+  { "cssWidth": 428, "cssHeight": 926, "dpr": 3 },
+  { "cssWidth": 393, "cssHeight": 852, "dpr": 3 },
+  { "cssWidth": 430, "cssHeight": 932, "dpr": 3 },
+  { "cssWidth": 402, "cssHeight": 874, "dpr": 3 },
+  { "cssWidth": 440, "cssHeight": 956, "dpr": 3 },
+  { "cssWidth": 768, "cssHeight": 1024, "dpr": 2 },
+  { "cssWidth": 810, "cssHeight": 1080, "dpr": 2 },
+  { "cssWidth": 834, "cssHeight": 1112, "dpr": 2 },
+  { "cssWidth": 820, "cssHeight": 1180, "dpr": 2 },
+  { "cssWidth": 834, "cssHeight": 1194, "dpr": 2 },
+  { "cssWidth": 1024, "cssHeight": 1366, "dpr": 2 }
+]

@@ -1,0 +1,172 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-minha_rotina}
+      MYSQL_USER: ${DB_USERNAME:-minha_rotina}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "${DB_FORWARD_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - minha-rotina
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_FORWARD_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - minha-rotina
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    networks:
+      - minha-rotina
+
+  api:
+    build:
+      context: ./docker/php
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      APP_URL: http://localhost:${NGINX_PORT:-8080}
+      FRONTEND_URL: http://localhost:${WEB_PORT:-3000}
+      CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-3000}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contato@minha-rotina.local}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BEk1fdn8f9yk4o74xx_P6V-2hTvKnJwMhZQQ2gWN9Yr1FtHimtuMYM8rX8gaRigONWy1NCmUWEniatknEvkINE4}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-UQFUtbA9QQrRUdNKyEiBeC0bf4hAAekbyjmB-p_EpdY}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-minha_rotina}
+      DB_USERNAME: ${DB_USERNAME:-minha_rotina}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CACHE_STORE: redis
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+    volumes:
+      - ./api:/var/www/html
+      - composer_cache:/root/.composer/cache
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "REQUEST_METHOD=GET SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 600s
+    networks:
+      - minha-rotina
+
+  worker:
+    build:
+      context: ./docker/php
+    restart: unless-stopped
+    command: ["worker-start.sh"]
+    working_dir: /var/www/html
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-minha_rotina}
+      DB_USERNAME: ${DB_USERNAME:-minha_rotina}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: database
+      FRONTEND_URL: http://localhost:${WEB_PORT:-3000}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contato@minha-rotina.local}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BEk1fdn8f9yk4o74xx_P6V-2hTvKnJwMhZQQ2gWN9Yr1FtHimtuMYM8rX8gaRigONWy1NCmUWEniatknEvkINE4}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-UQFUtbA9QQrRUdNKyEiBeC0bf4hAAekbyjmB-p_EpdY}
+    volumes:
+      - ./api:/var/www/html
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - minha-rotina
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./api:/var/www/html:ro
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - minha-rotina
+
+  web:
+    build:
+      context: ./docker/web
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      DEV_PORT: ${WEB_PORT:-3000}
+      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-false}
+    ports:
+      - "${WEB_PORT:-3000}:${WEB_PORT:-3000}"
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+    depends_on:
+      nginx:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$${DEV_PORT:-3000}/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 300s
+    networks:
+      - minha-rotina
+
+networks:
+  minha-rotina:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  composer_cache:
+  web_node_modules:
