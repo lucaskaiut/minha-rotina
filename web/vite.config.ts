@@ -44,7 +44,9 @@ const config = defineConfig({
         ],
       },
       workbox: {
-        globDirectory: '.output/public',
+        globDirectory: process.env.VERCEL
+          ? '.vercel/output/static'
+          : '.output/public',
         globPatterns: [
           '**/*.{js,css,html,ico,png,svg,woff,woff2,jpg,jpeg,webp}',
         ],

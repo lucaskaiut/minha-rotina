@@ -21,6 +21,7 @@ export default [
       'dist/**',
       'dev-dist/**',
       '.output/**',
+      '.vercel/**',
       'node_modules/**',
       'public/**',
       'src/routeTree.gen.ts',

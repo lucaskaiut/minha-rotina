@@ -9,7 +9,7 @@
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build && npm run pwa:sync",
-    "pwa:sync": "cp -f dist/sw.js dist/workbox-*.js .output/public/ 2>/dev/null || true",
+    "pwa:sync": "node scripts/sync-pwa.mjs",
     "preview": "vite preview",
     "lint": "eslint",
     "format": "prettier --write . && eslint --fix",
