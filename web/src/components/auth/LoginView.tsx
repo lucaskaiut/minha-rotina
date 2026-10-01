@@ -83,7 +83,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   }
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
+    <div className="min-h-dvh flex items-center justify-center px-4 py-6 sm:p-6 animate-fadeIn">
       <div className="w-full max-w-md ui-card shadow-xl p-7 sm:p-9 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
