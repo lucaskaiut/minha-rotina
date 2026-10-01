@@ -162,6 +162,31 @@ class TaskFlowTest extends ApiTestCase
         $this->assertDatabaseCount('achievements', 6);
     }
 
+    public function test_mother_can_create_daughter_with_avatar_upload(): void
+    {
+        [, $mother] = $this->createFamilyWithMother();
+
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $response = $this->actingAs($mother, 'sanctum')
+            ->post('/api/v1/daughters', [
+                'name' => 'Clara',
+                'email' => 'clara@teste.com',
+                'password' => 'senha123',
+                'avatar' => \Illuminate\Http\UploadedFile::fake()->image('clara.jpg', 320, 320),
+            ], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Clara');
+
+        $avatarUrl = (string) $response->json('data.avatarUrl');
+        $this->assertNotSame('', $avatarUrl);
+
+        $path = parse_url($avatarUrl, PHP_URL_PATH);
+        $this->assertIsString($path);
+        $relative = ltrim(substr($path, strpos($path, '/storage/') + strlen('/storage/')), '/');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($relative);
+    }
+
     public function test_one_time_task_only_appears_on_scheduled_date(): void
     {
         [$family, $mother] = $this->createFamilyWithMother();

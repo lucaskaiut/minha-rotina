@@ -41,6 +41,7 @@ export class ApiError extends Error {
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
+  formData?: FormData
   signal?: AbortSignal
 }
 
@@ -48,6 +49,7 @@ async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  const formData = options.formData
   const hasBody = options.body !== undefined
 
   const response = await fetch(`${PREFIX}${path}`, {
@@ -55,9 +57,9 @@ async function request<T>(
     credentials: 'include',
     headers: {
       Accept: 'application/json',
-      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(hasBody && !formData ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: hasBody ? JSON.stringify(options.body) : undefined,
+    body: formData ?? (hasBody ? JSON.stringify(options.body) : undefined),
     signal: options.signal,
   })
 
@@ -128,6 +130,7 @@ export type DaughterPayload = {
   birthdate?: string
   schoolGrade?: string
   avatarUrl?: string
+  avatarFile?: File
 }
 
 function toTaskRequest(payload: TaskPayload) {
@@ -154,6 +157,17 @@ function toDaughterRequest(payload: Partial<DaughterPayload>) {
     school_grade: payload.schoolGrade,
     avatar_url: payload.avatarUrl,
   }
+}
+
+function toDaughterFormData(payload: DaughterPayload): FormData {
+  const form = new FormData()
+  form.append('name', payload.name)
+  form.append('email', payload.email)
+  form.append('password', payload.password)
+  if (payload.birthdate) form.append('birthdate', payload.birthdate)
+  if (payload.schoolGrade) form.append('school_grade', payload.schoolGrade)
+  if (payload.avatarFile) form.append('avatar', payload.avatarFile)
+  return form
 }
 
 export const authApi = {
@@ -195,11 +209,19 @@ export const authApi = {
 
 export const daughtersApi = {
   list: () => request<{ data: Daughter[] }>('/daughters').then((r) => r.data),
-  create: (payload: DaughterPayload) =>
-    request<{ data: Daughter }>('/daughters', {
+  create: (payload: DaughterPayload) => {
+    if (payload.avatarFile) {
+      return request<{ data: Daughter }>('/daughters', {
+        method: 'POST',
+        formData: toDaughterFormData(payload),
+      }).then((r) => r.data)
+    }
+
+    return request<{ data: Daughter }>('/daughters', {
       method: 'POST',
       body: toDaughterRequest(payload),
-    }).then((r) => r.data),
+    }).then((r) => r.data)
+  },
   update: (id: string, payload: Partial<DaughterPayload>) =>
     request<{ data: Daughter }>(`/daughters/${id}`, {
       method: 'PUT',

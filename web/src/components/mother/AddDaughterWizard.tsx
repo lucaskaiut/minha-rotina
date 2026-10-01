@@ -1,7 +1,17 @@
-import React, { useState } from 'react'
-import { X, Check, ArrowRight, ArrowLeft, User, Mail, Lock } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import {
+  X,
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  User,
+  Mail,
+  Lock,
+  Camera,
+  Trash2,
+} from 'lucide-react'
 import type { DaughterPayload } from '#/services/api'
-import { AVATAR_URLS } from '#/mocks/avatars'
+import { avatarFallback } from '#/mocks/avatars'
 import { Button } from '../ui/Button'
 import { TextInput } from '../ui/Input'
 
@@ -11,11 +21,7 @@ interface AddDaughterWizardProps {
   onAddDaughter: (data: DaughterPayload) => Promise<void>
 }
 
-const AVATAR_PRESETS = [
-  { url: AVATAR_URLS.laura, label: 'Estilo 1' },
-  { url: AVATAR_URLS.sophia, label: 'Estilo 2' },
-  { url: AVATAR_URLS.mae, label: 'Estilo 3' },
-]
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 
 function calculateAge(birthdate: string): number {
   if (!birthdate) return 0
@@ -44,7 +50,9 @@ export const AddDaughterWizard: React.FC<AddDaughterWizardProps> = ({
   const [name, setName] = useState('')
   const [birthdate, setBirthdate] = useState('2013-05-14')
   const [schoolGrade, setSchoolGrade] = useState('6º Ano Fundamental')
-  const [avatarUrl, setAvatarUrl] = useState(AVATAR_PRESETS[0].url)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -60,7 +68,18 @@ export const AddDaughterWizard: React.FC<AddDaughterWizardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    return () => {
+      if (photoPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreview)
+      }
+    }
+  }, [photoPreview])
+
   if (!isOpen) return null
+
+  const profilePreview =
+    photoPreview ?? avatarFallback(name.trim() || 'filha')
 
   const age = calculateAge(birthdate)
   const canAdvanceStepOne =
@@ -97,15 +116,11 @@ export const AddDaughterWizard: React.FC<AddDaughterWizardProps> = ({
         password,
         birthdate,
         schoolGrade,
-        avatarUrl,
+        avatarFile: photoFile ?? undefined,
       })
 
       onClose()
-      setCurrentStep(1)
-      setName('')
-      setEmail('')
-      setPassword('')
-      setBirthdate('2013-05-14')
+      resetWizard()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -121,6 +136,51 @@ export const AddDaughterWizard: React.FC<AddDaughterWizardProps> = ({
     if (currentStep > 1) {
       setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3)
     }
+  }
+
+  const clearPhoto = () => {
+    if (photoPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(photoPreview)
+    }
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    if (photoInputRef.current) {
+      photoInputRef.current.value = ''
+    }
+  }
+
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null)
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Selecione um arquivo de imagem (JPG, PNG ou WebP).')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError('A foto deve ter no máximo 2 MB.')
+      event.target.value = ''
+      return
+    }
+
+    if (photoPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(photoPreview)
+    }
+
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const resetWizard = () => {
+    setCurrentStep(1)
+    setName('')
+    setEmail('')
+    setPassword('')
+    setBirthdate('2013-05-14')
+    clearPhoto()
   }
 
   return (
@@ -218,31 +278,46 @@ export const AddDaughterWizard: React.FC<AddDaughterWizardProps> = ({
               />
 
               <div>
-                <label className="block text-xs font-semibold text-[#111827] mb-2">
-                  Escolha uma foto ou avatar
-                </label>
-                <div className="grid grid-cols-4 gap-2.5">
-                  {AVATAR_PRESETS.map((preset, index) => (
-                    <button
-                      key={index}
+                <span className="block text-xs font-semibold text-[#111827] mb-2">
+                  Foto de perfil (opcional)
+                </span>
+                <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-white shadow-[0_1px_5px_rgb(15_23_42/0.06)]">
+                  <img
+                    src={profilePreview}
+                    alt={name || 'Pré-visualização da foto'}
+                    className="w-16 h-16 rounded-full object-cover shadow-[0_1px_5px_rgb(15_23_42/0.06)]"
+                  />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="sr-only"
+                      onChange={handlePhotoChange}
+                    />
+                    <Button
                       type="button"
-                      onClick={() => setAvatarUrl(preset.url)}
-                      className={`p-2 rounded-2xl text-center transition-all ${
-                        avatarUrl === preset.url
-                          ? 'ui-selected bg-[#EEF0FF]'
-                          : 'bg-white shadow-[0_1px_5px_rgb(15_23_42/0.06)] hover:shadow-[0_2px_10px_rgb(15_23_42/0.08)]'
-                      }`}
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<Camera className="w-4 h-4" />}
+                      onClick={() => photoInputRef.current?.click()}
                     >
-                      <img
-                        src={preset.url}
-                        alt={preset.label}
-                        className="w-12 h-12 rounded-full object-cover mx-auto shadow-[0_1px_5px_rgb(15_23_42/0.06)]"
-                      />
-                      <span className="block text-[10px] font-medium text-[#6B7280] mt-1 truncate">
-                        {preset.label}
-                      </span>
-                    </button>
-                  ))}
+                      {photoFile ? 'Trocar foto' : 'Enviar foto'}
+                    </Button>
+                    {photoFile && (
+                      <button
+                        type="button"
+                        onClick={clearPhoto}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remover foto
+                      </button>
+                    )}
+                    <p className="text-[11px] text-[#6B7280]">
+                      JPG, PNG ou WebP · até 2 MB
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -321,7 +396,7 @@ export const AddDaughterWizard: React.FC<AddDaughterWizardProps> = ({
               {/* Summary Card */}
               <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-slate-50 shadow-[0_1px_5px_rgb(15_23_42/0.06)]">
                 <img
-                  src={avatarUrl}
+                  src={profilePreview}
                   alt={name}
                   className="w-14 h-14 rounded-full object-cover "
                 />

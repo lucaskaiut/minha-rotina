@@ -12,6 +12,7 @@ use App\Support\FamilyContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class DaughterController extends Controller
@@ -52,8 +53,11 @@ class DaughterController extends Controller
             'password' => ['required', 'string', 'min:6'],
             'birthdate' => ['nullable', 'date', 'before:today'],
             'school_grade' => ['nullable', 'string', 'max:80'],
+            'avatar' => ['nullable', 'image', 'max:2048'],
             'avatar_url' => ['nullable', 'string', 'max:2048'],
         ]);
+
+        $avatarUrl = $this->resolveAvatarUrl($request, $data['avatar_url'] ?? null);
 
         $daughter = User::query()->create([
             'name' => $data['name'],
@@ -64,7 +68,7 @@ class DaughterController extends Controller
             'mother_id' => $mother->id,
             'birthdate' => $data['birthdate'] ?? null,
             'school_grade' => $data['school_grade'] ?? null,
-            'avatar_url' => $data['avatar_url'] ?? null,
+            'avatar_url' => $avatarUrl,
             'profile_status' => 'active',
         ]);
 
@@ -89,12 +93,20 @@ class DaughterController extends Controller
             'password' => ['sometimes', 'nullable', 'string', 'min:6'],
             'birthdate' => ['sometimes', 'nullable', 'date', 'before:today'],
             'school_grade' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'avatar' => ['sometimes', 'nullable', 'image', 'max:2048'],
             'avatar_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
         ]);
 
         if (empty($data['password'])) {
             unset($data['password']);
         }
+
+        if ($request->hasFile('avatar')) {
+            $this->deleteStoredAvatar($daughter->avatar_url);
+            $data['avatar_url'] = $this->resolveAvatarUrl($request, null);
+        }
+
+        unset($data['avatar']);
 
         $daughter->fill($data)->save();
 
@@ -134,5 +146,33 @@ class DaughterController extends Controller
         $stats = $this->agenda->dayStats($daughter, Carbon::today());
 
         return ApiPresenter::daughter($daughter, $stats['completed'], $stats['total']);
+    }
+
+    private function resolveAvatarUrl(Request $request, ?string $fallback): ?string
+    {
+        if (! $request->hasFile('avatar')) {
+            return $fallback;
+        }
+
+        $path = $request->file('avatar')->store('avatars', 'public');
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function deleteStoredAvatar(?string $avatarUrl): void
+    {
+        if ($avatarUrl === null || $avatarUrl === '') {
+            return;
+        }
+
+        $path = parse_url($avatarUrl, PHP_URL_PATH);
+        if (! is_string($path) || ! str_contains($path, '/storage/')) {
+            return;
+        }
+
+        $relativePath = ltrim(substr($path, strpos($path, '/storage/') + strlen('/storage/')), '/');
+        if ($relativePath !== '') {
+            Storage::disk('public')->delete($relativePath);
+        }
     }
 }
